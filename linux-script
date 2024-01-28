@@ -1,0 +1,63 @@
+# Change to the home directory
+cd /home/vinni
+
+# Create a new directory for the Tuxedo pipeline analysis
+mkdir Newtuxedo_pipeline
+
+# Change to the new directory
+cd Newtuxedo_pipeline
+
+# Download the download script bioproject number PRJNA385512 from ENA
+# Note: You need to have the correct script available
+# If the script is named PRJNA385512.sh, or change it to PRJNA385512
+sh PRJNA385512.sh
+
+# Sequence contains WILD TYPE replicate 1- SRR5509283_1,SRR5509283_2
+# WILD TYPE replicate 2- SRR5509284_1, SRR5509284_2
+# CISPLATIN RESISTANT replicate 1- SRR5509285_1,SRR5509285_2
+# CISPLATIN RESISTANT replicate 2- SRR5509286_1, SRR5509286_2
+
+# Run FastQC for each FASTQ file
+fastqc SRR5509283_1.fastq.gz
+fastqc SRR5509283_2.fastq.gz
+fastqc SRR5509284_1.fastq.gz
+fastqc SRR5509284_2.fastq.gz
+fastqc SRR5509285_1.fastq.gz
+fastqc SRR5509285_2.fastq.gz
+fastqc SRR5509286_1.fastq.gz
+fastqc SRR5509286_2.fastq.gz
+
+# After reviewing the FastQC reports, the overall quality of the sequences is good.
+
+# HISAT2 command to map paired-end reads to the reference genome
+hisat2 -p 8 --dta -x ngs/human_index/genome_snp_tran -1 samples/SRR5509283_1.fastq.gz -2 samples/SRR5509283_2.fastq.gz -S SRR5509283.sam
+hisat2 -p 8 --dta -x ngs/human_index/genome_snp_tran -1 samples/SRR5509284_1.fastq.gz -2 
+samples/SRR5509284_2.fastq.gz -S SRR5509284.sam
+hisat2 -p 8 --dta -x ngs/human_index/genome_snp_tran -1 samples/SRR5509285_1.fastq.gz -2 
+samples/SRR5509285_2.fastq.gz -S SRR5509285.sam
+hisat2 -p 8 --dta -x ngs/human_index/genome_snp_tran -1 samples/SRR5509286_1.fastq.gz -2 
+samples/SRR5509286_2.fastq.gz -S SRR5509286.sam
+
+# Sort and convert SAM files to BAM for each sample
+samtools sort -@ 8 -o SRR5509283.bam SRR5509283.sam
+samtools sort -@ 8 -o SRR5509284.bam SRR5509284.sam
+samtools sort -@ 8 -o SRR5509285.bam SRR5509285.sam
+samtools sort -@ 8 -o SRR5509286.bam SRR5509286.sam
+
+# Assemble and quantify expressed genes and transcripts using StringTie for each sample
+stringtie -p 8 -G ngs/genome.gtf -o SRR5509283.gtf -l SRR5509283 SRR5509283.bam
+stringtie -p 8 -G ngs/genome.gtf -o SRR5509284.gtf -l SRR5509284 SRR5509284.bam
+stringtie -p 8 -G ngs/genome.gtf -o SRR5509285.gtf -l SRR5509285 SRR5509285.bam
+stringtie -p 8 -G ngs/genome.gtf -o SRR5509286.gtf -l SRR5509286 SRR5509286.bam
+
+
+
+# Merge transcripts from all samples using StringTie with the pre-existing mergelist.txt file which has the names of the gene transfer format (GTF) files created in the 
+previous step
+stringtie --merge -p 8 -G ngs/genome.gtf -o stringtie_merged.gtf mergelist.txt
+
+# Run stringtie for each sample and output to a unique GTF file
+stringtie -e -p 8 -G stringtie_merged.gtf -o ballgown/SRR5509283.gtf SRR5509283.bam
+stringtie -e -p 8 -G stringtie_merged.gtf -o ballgown/SRR5509284.gtf SRR5509284.bam
+stringtie -e -p 8 -G stringtie_merged.gtf -o ballgown/SRR5509285.gtf SRR5509285.bam
+stringtie -e -p 8 -G stringtie_merged.gtf -o ballgown/SRR5509286.gtf SRR5509286.bam
